@@ -1,10 +1,15 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
-local player
+-- game ribbyte
+-- by james glass
+
 local gravity
 local friction
 local game_frame
+
+local player
+local player_fx
 
 -- pico-8 functions --
 
@@ -48,21 +53,18 @@ function _init()
 		is_ledge_falling = false,
 		is_grounded = true,
 		is_walking_into_wall = false,
-		is_licky = false,
+		-- is_licky = false,
 		----
 		update = function(self)
+			---- update frame
 			self.frame = iterate_frames(self.frame)
-
 			---- constants
 			self.apply_constants(self)
-			
 			---- inputs
 			self.handle_inputs(self)
-
 			---- move speed cap
 			self.apply_speed_cap(self)
-
-			-- debug
+			---- debug
 			self.log_states(self)
 		end,
 		draw = function(self)
@@ -72,13 +74,9 @@ function _init()
 		log_states = function(self)
 			print(self.dx)
 			print(self.dy)
-
-			print(self.is_jumping)
-			print(self.is_falling)
-			print(self.is_ledge_falling)
-			print(self.is_grounded)
 		end,
 		handle_inputs = function(self)
+			-- left or right
 			if not self.is_crouching then
 				-- left
 				if btn(0) then
@@ -107,7 +105,6 @@ function _init()
 			-- ground movement states
 			self.is_walking = (btn(0) or btn(1)) and self.dx != 0
 			self.is_walking_into_wall = (btn(0) or btn(1)) and not (btn(0) and btn(1)) and not self.walking
-			
 
 			-- jump (up) press; check to see if can jump
 			if (jump_btnp() and not self.is_jumping and not self.is_falling and not self.is_ledge_falling) then
@@ -115,7 +112,7 @@ function _init()
 				self.is_jumping = true
 
 				-- create land jump sprite
-				create_jump_fx(self.pos_x, self.pos_y, self.flip)
+				create_jump_fx({25, 26, 27}, self.pos_x, self.pos_y, self.flip)
 
 			elseif (jump_btnp() and self.is_ledge_falling) then
 				self.dy = - (self.air_acceleration * self.jump_boost)
@@ -123,8 +120,7 @@ function _init()
 				self.is_ledge_falling = false
 
 				-- create air jump sprite
-				create_jump_fx(self.pos_x, self.pos_y, self.flip)
-				create_air_jump_fx(self.pos_x, self.pos_y, self.flip)
+				create_jump_fx({28, 29, 30}, self.pos_x, self.pos_y, self.flip)
 			end
 
 			-- air movement states
@@ -221,10 +217,10 @@ end
 
 -- draw to screen
 function _draw() 
- 	player:draw()
 	for fx in all(player_fx) do
 		fx:draw()
 	end
+ 	player:draw()
 end
 
 -----
@@ -262,68 +258,31 @@ function check_wall(x, y)
 end
 
 -- fx
-function create_jump_fx(pos_x, pos_y, flip)
-	fx_jump = {
-		pos_x = pos_x,
-		pos_y = pos_y,
-		sprites = {25, 26, 27},
-		r_sprites = {},
-		sprite = 25,
-		flip = flip,
-		update = function(self)
-			if game_frame % 3 == 0 then
-				if #self.sprites != 0 then
-					self.sprite = self.sprites[1]
-					add(self.r_sprites, self.sprite, 1)
-					deli(self.sprites, 1)
-				else 
-					if #self.r_sprites != 0 then
-						self.sprite = self.r_sprites[1]
-						deli(self.r_sprites, 1)
-					else
+function create_jump_fx(sprites, pos_x, pos_y, flip)
+	if #sprites > 0 then
+		fx_jump = {
+			pos_x = pos_x,
+			pos_y = pos_y,
+			sprites = sprites,
+			sprite = sprites[1],
+			flip = flip,
+			update = function(self)
+				if game_frame % 3 == 0 then
+					if #self.sprites != 0 then
+						self.sprite = self.sprites[1]
+						deli(self.sprites, 1)
+					else 
 						del(player_fx, self)
 					end
 				end
+			end,
+			draw = function(self)
+				spr(self.sprite, self.pos_x, self.pos_y, 1, 1, self.flip)
 			end
-		end,
-		draw = function(self)
-			spr(self.sprite, self.pos_x, self.pos_y, 1, 1, self.flip)
-		end
-	}
+		}
 
-	add(player_fx, fx_jump)
-end
-
-function create_air_jump_fx(pos_x, pos_y, flip)
-	fx_air_jump = {
-		pos_x = pos_x,
-		pos_y = pos_y,
-		sprites = {28, 29, 30},
-		r_sprites = {},
-		sprite = 28,
-		flip = flip,
-		update = function(self)
-			if game_frame % 3 == 0 then
-				if #self.sprites != 0 then
-					self.sprite = self.sprites[1]
-					add(self.r_sprites, self.sprite, 1)
-					deli(self.sprites, 1)
-				else 
-					if #self.r_sprites != 0 then
-						self.sprite = self.r_sprites[1]
-						deli(self.r_sprites, 1)
-					else
-						del(player_fx, self)
-					end
-				end
-			end
-		end,
-		draw = function(self)
-			spr(self.sprite, self.pos_x, self.pos_y, 1, 1, self.flip)
-		end
-	}
-
-	add(player_fx, fx_air_jump)
+		add(player_fx, fx_jump)
+	end
 end
 
 __gfx__
@@ -335,14 +294,14 @@ __gfx__
 0070070033bbbbbb33bbbbbb03bbbbb303bbbbb30bb3bb3b0bbbbbbbffffffff2222222203bbbbbb03bbbbbb0000000000000000000000000000000000000000
 0000000033bbbbb333bbbbb303bbbbb303bbbbb303bbbbb30bb3bb3bffffffff2222222203bbbbb303bbbbb30000000000000000000000700000007000000070
 0000000003b3b3b303b3b3b303000003030000030000000003bbbbb3ffffffff22222222303b3b30303b3b300000000500000065000007650000076000000700
-000000000000000000000000000000000000000000000000000000000bb0bb0000bb0bb000000000000000000000000000000000000000000000000000000000
-00bb0bb000bb0bb000bb0bb000088000000bb0bb00000000000bb0bb0b1bb1b003b1bb1b00000000000000000000000000000000000000000000000000000000
-03b1bb1b03b1bb1b03b1bb1b00888800003b1bb1000bb0bb003bbbbbbb1bb1b00bb1bb1b00000000000000000000000000000000000000000000000000000000
-0bb1bb1b0bb1221b0bb1221b0888882000bb1bb1003bbbbb00bb1bb1bbb82bb00bbb82bb00000000000000000000000000000000000000000000000000000000
-0bbb82bb0bbb82bb0bbb88880288882000bbb82b00bb11b100bb1bb1bbbbbbb033bbbbbb00000000000000000000000000000000000000000000000000000000
-33bbbbbb33bb88bb33bb82bb0028820003bbbbbb00bbb82b03bbb82b33bbbbb333bbbbb300000000000000000007000000000000000000000000000000000000
-33bbbbb333bbbbb333bbbbb30002200033bbbbbb033bbbbb33bbbbbb33b3b3b330b3b3b000000000000660000006600000600600076006707650056700000000
-03b3b3b303b3b3b303b3b3b300000000303b3b303303b3b3303b3b30300000000000000000766700007667000076670000000000007667000765567000000000
+00bb0bb00000000000000000000000000000000000000000000000000bb0bb0000bb0bb000000000000000000000000000000000000000000000000000000000
+03b1bb1b00bb0bb000bb0bb000088000000bb0bb00000000000bb0bb0b1bb1b003b1bb1b00000000000000000000000000000000000000000000000000000000
+0bb1bb1b03b1bb1b03b1bb1b00888800003b1bb1000bb0bb003bbbbbbb1bb1b00bb1bb1b00000000000000000000000000000000000000000000000000000000
+0bbb22bb0bb1221b0bb1221b0888882000bb1bb1003bbbbb00bb1bb1bbb82bb00bbb82bb00000000000000000000000000000000000000000000000000000000
+0bbb88bb0bbb82bb0bbb88880288882000bbb82b00bb11b100bb1bb1bbbbbbb033bbbbbb00000000000000000000000000000000000000000000000000000000
+0000820033bb88bb33bb82bb0028820003bbbbbb00bbb82b03bbb82b33bbbbb333bbbbb300000000000000000000000000000000000000000600006000000000
+0000000033bbbbb333bbbbb30002200033bbbbbb033bbbbb33bbbbbb33b3b3b330b3b3b000000000060000600000000000600600060000606060060600000000
+0000000003b3b3b303b3b3b300000000303b3b303303b3b3303b3b30300000000000000000600600060000606000000600000000000000000600006000000000
 __gff__
 0000000000000002ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
